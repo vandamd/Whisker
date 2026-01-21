@@ -1,6 +1,6 @@
 <img src="assets/example.png" alt="Whisker Screenshots">
 
-<p>A minimal Mac app to hide menubar icons.</p>
+<p>App to hide menubar app icons in macOS.</p>
 
 ![GitHub License](https://img.shields.io/github/license/vandamd/Whisker)
 ![GitHub Release](https://img.shields.io/github/v/release/vandamd/Whisker)

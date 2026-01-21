@@ -81,6 +81,7 @@ struct AboutTab: View {
                     GitHubIcon()
                         .frame(width: 14, height: 14)
                     Text("GitHub")
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .buttonStyle(.plain)

@@ -12,6 +12,8 @@ Hide via the menu button or toggle visiblity with your hotkey (default: CMD + SH
 
 ## Installation
 Install via Homebrew:
-```brew install vandamd/tap/whisker```
+```bash
+brew install vandamd/tap/whisker
+```
 
 Or download the latest release from the [releases page](https://github.com/vandamd/Whisker/releases/latest).

@@ -178,9 +178,9 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'EOF'
     <key>CFBundleIdentifier</key>
     <string>com.local.Whisker</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>3</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.1</string>
+    <string>1.0.2</string>
     <key>CFBundleExecutable</key>
     <string>Whisker</string>
     <key>CFBundlePackageType</key>

@@ -30,12 +30,26 @@ struct SettingsView: View {
 
 struct GeneralTab: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var autoHideDelay: AutoHideDelay = {
+        let rawValue = UserDefaults.standard.integer(forKey: "WhiskerAutoHideDelay")
+        return AutoHideDelay(rawValue: rawValue) ?? .disabled
+    }()
 
     var body: some View {
         Form {
             Section {
                 LabeledContent("Keyboard shortcut") {
                     KeyboardShortcuts.Recorder(for: .toggleMenuBar)
+                }
+
+                Picker("Auto-hide", selection: $autoHideDelay) {
+                    ForEach(AutoHideDelay.allCases) { delay in
+                        Text(delay.displayName).tag(delay)
+                    }
+                }
+                .onChange(of: autoHideDelay) { _, newValue in
+                    UserDefaults.standard.set(newValue.rawValue, forKey: "WhiskerAutoHideDelay")
+                    NotificationCenter.default.post(name: .autoHideSettingsChanged, object: nil)
                 }
 
                 Toggle("Launch at login", isOn: $launchAtLogin)

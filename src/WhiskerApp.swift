@@ -6,18 +6,54 @@ extension KeyboardShortcuts.Name {
     static let toggleMenuBar = Self("toggleMenuBar", default: .init(.y, modifiers: [.command, .shift]))
 }
 
+enum AutoHideDelay: Int, CaseIterable, Identifiable {
+    case disabled = 0
+    case fiveSeconds = 5
+    case tenSeconds = 10
+    case thirtySeconds = 30
+    case oneMinute = 60
+    case twoMinutes = 120
+
+    var id: Int { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .disabled: return "Off"
+        case .fiveSeconds: return "5 seconds"
+        case .tenSeconds: return "10 seconds"
+        case .thirtySeconds: return "30 seconds"
+        case .oneMinute: return "1 minute"
+        case .twoMinutes: return "2 minutes"
+        }
+    }
+
+    var timeInterval: TimeInterval? {
+        rawValue == 0 ? nil : TimeInterval(rawValue)
+    }
+
+    var isEnabled: Bool { self != .disabled }
+    static var defaultValue: AutoHideDelay { .disabled }
+}
+
+extension Notification.Name {
+    static let autoHideSettingsChanged = Notification.Name("WhiskerAutoHideSettingsChanged")
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem!
     var settingsWindow: NSWindow?
     var isHidden = false
+    var autoHideTimer: Timer?
 
     let hiddenLength: CGFloat = 10_000
     let hiddenStateKey = "WhiskerIsHidden"
+    let autoHideDelayKey = "WhiskerAutoHideDelay"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMainMenu()
         setupStatusItem()
         setupKeyboardShortcut()
+        setupAutoHideObserver()
 
         isHidden = UserDefaults.standard.bool(forKey: hiddenStateKey)
         updateVisibility()
@@ -79,6 +115,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func updateVisibility() {
         if isHidden {
+            cancelAutoHideTimer()
             statusItem.length = hiddenLength
             statusItem.button?.image = nil
         } else {
@@ -87,7 +124,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 image.isTemplate = true
                 statusItem.button?.image = image
             }
+            scheduleAutoHideTimer()
         }
+    }
+
+    private func setupAutoHideObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAutoHideSettingsChanged),
+            name: .autoHideSettingsChanged,
+            object: nil
+        )
+    }
+
+    @objc private func handleAutoHideSettingsChanged() {
+        if !isHidden {
+            scheduleAutoHideTimer()
+        }
+    }
+
+    private func scheduleAutoHideTimer() {
+        cancelAutoHideTimer()
+
+        let delayRawValue = UserDefaults.standard.integer(forKey: autoHideDelayKey)
+        guard let delay = AutoHideDelay(rawValue: delayRawValue),
+              let interval = delay.timeInterval else {
+            return
+        }
+
+        autoHideTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            self?.autoHide()
+        }
+    }
+
+    private func cancelAutoHideTimer() {
+        autoHideTimer?.invalidate()
+        autoHideTimer = nil
+    }
+
+    private func autoHide() {
+        guard !isHidden else { return }
+        toggle()
     }
 
     @MainActor func showContextMenu() {

@@ -31,7 +31,7 @@ struct SettingsView: View {
 struct GeneralTab: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var autoHideDelay: AutoHideDelay = {
-        let rawValue = UserDefaults.standard.integer(forKey: "WhiskerAutoHideDelay")
+        let rawValue = UserDefaults.standard.integer(forKey: AppDelegate.autoHideDelayKey)
         return AutoHideDelay(rawValue: rawValue) ?? .disabled
     }()
 
@@ -48,7 +48,7 @@ struct GeneralTab: View {
                     }
                 }
                 .onChange(of: autoHideDelay) { _, newValue in
-                    UserDefaults.standard.set(newValue.rawValue, forKey: "WhiskerAutoHideDelay")
+                    UserDefaults.standard.set(newValue.rawValue, forKey: AppDelegate.autoHideDelayKey)
                     NotificationCenter.default.post(name: .autoHideSettingsChanged, object: nil)
                 }
 
@@ -61,7 +61,7 @@ struct GeneralTab: View {
                                 try SMAppService.mainApp.unregister()
                             }
                         } catch {
-                            print("Failed to update launch at login: \(error)")
+                            print("Failed to update launch at login: \(error.localizedDescription)")
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }

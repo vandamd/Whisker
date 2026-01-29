@@ -39,15 +39,17 @@ extension Notification.Name {
     static let autoHideSettingsChanged = Notification.Name("WhiskerAutoHideSettingsChanged")
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem!
     var settingsWindow: NSWindow?
     var isHidden = false
     var autoHideTimer: Timer?
+    private var currentAutoHideDelay: AutoHideDelay = .disabled
 
     let hiddenLength: CGFloat = 10_000
     let hiddenStateKey = "WhiskerIsHidden"
-    let autoHideDelayKey = "WhiskerAutoHideDelay"
+    static let autoHideDelayKey = "WhiskerAutoHideDelay"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMainMenu()
@@ -56,6 +58,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setupAutoHideObserver()
 
         isHidden = UserDefaults.standard.bool(forKey: hiddenStateKey)
+        let delayRawValue = UserDefaults.standard.integer(forKey: Self.autoHideDelayKey)
+        currentAutoHideDelay = AutoHideDelay(rawValue: delayRawValue) ?? .disabled
         updateVisibility()
     }
 
@@ -93,10 +97,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            if let image = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker") {
-                image.isTemplate = true
-                button.image = image
-            }
+            let icon = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker")
+            icon?.isTemplate = true
+            button.image = icon
             button.target = self
             button.action = #selector(clicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -120,24 +123,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             statusItem.button?.image = nil
         } else {
             statusItem.length = NSStatusItem.variableLength
-            if let image = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker") {
-                image.isTemplate = true
-                statusItem.button?.image = image
-            }
+            let icon = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker")
+            icon?.isTemplate = true
+            statusItem.button?.image = icon
             scheduleAutoHideTimer()
         }
     }
 
     private func setupAutoHideObserver() {
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAutoHideSettingsChanged),
-            name: .autoHideSettingsChanged,
-            object: nil
-        )
+            forName: .autoHideSettingsChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleAutoHideSettingsChanged()
+            }
+        }
     }
 
-    @objc private func handleAutoHideSettingsChanged() {
+    private func handleAutoHideSettingsChanged() {
+        let delayRawValue = UserDefaults.standard.integer(forKey: Self.autoHideDelayKey)
+        currentAutoHideDelay = AutoHideDelay(rawValue: delayRawValue) ?? .disabled
         if !isHidden {
             scheduleAutoHideTimer()
         }
@@ -146,14 +153,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func scheduleAutoHideTimer() {
         cancelAutoHideTimer()
 
-        let delayRawValue = UserDefaults.standard.integer(forKey: autoHideDelayKey)
-        guard let delay = AutoHideDelay(rawValue: delayRawValue),
-              let interval = delay.timeInterval else {
+        guard let interval = currentAutoHideDelay.timeInterval else {
             return
         }
 
         autoHideTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
-            self?.autoHide()
+            Task { @MainActor in
+                self?.autoHide()
+            }
         }
     }
 

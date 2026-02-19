@@ -47,7 +47,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var autoHideTimer: Timer?
     private var currentAutoHideDelay: AutoHideDelay = .disabled
 
-    let hiddenLength: CGFloat = 10_000
+    private let hiddenWidthPadding: CGFloat = 200
+    private lazy var statusIcon: NSImage? = {
+        let icon = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker")
+        icon?.isTemplate = true
+        return icon
+    }()
+
     let hiddenStateKey = "WhiskerIsHidden"
     static let autoHideDelayKey = "WhiskerAutoHideDelay"
 
@@ -56,6 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setupStatusItem()
         setupKeyboardShortcut()
         setupAutoHideObserver()
+        setupScreenObserver()
 
         isHidden = UserDefaults.standard.bool(forKey: hiddenStateKey)
         let delayRawValue = UserDefaults.standard.integer(forKey: Self.autoHideDelayKey)
@@ -97,9 +104,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            let icon = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker")
-            icon?.isTemplate = true
-            button.image = icon
+            button.image = statusIcon
             button.target = self
             button.action = #selector(clicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -119,15 +124,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func updateVisibility() {
         if isHidden {
             cancelAutoHideTimer()
-            statusItem.length = hiddenLength
+            statusItem.length = hiddenLength()
             statusItem.button?.image = nil
         } else {
             statusItem.length = NSStatusItem.variableLength
-            let icon = NSImage(systemSymbolName: "circlebadge.fill", accessibilityDescription: "Whisker")
-            icon?.isTemplate = true
-            statusItem.button?.image = icon
+            statusItem.button?.image = statusIcon
             scheduleAutoHideTimer()
         }
+    }
+
+    private func hiddenLength() -> CGFloat {
+        let widestScreenWidth = NSScreen.screens.map(\.frame.width).max() ?? 1728
+        return widestScreenWidth + hiddenWidthPadding
     }
 
     private func setupAutoHideObserver() {
@@ -138,6 +146,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.handleAutoHideSettingsChanged()
+            }
+        }
+    }
+
+    private func setupScreenObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isHidden else { return }
+                self.statusItem.length = self.hiddenLength()
             }
         }
     }
@@ -231,7 +252,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.setContentSize(hostingController.view.fittingSize)
             window.center()
             window.delegate = self
-            window.isReleasedWhenClosed = false
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             settingsWindow = window
         }
@@ -243,6 +263,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        settingsWindow = nil
     }
 
     @objc func quit() {

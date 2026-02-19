@@ -252,6 +252,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.setContentSize(hostingController.view.fittingSize)
             window.center()
             window.delegate = self
+            window.isReleasedWhenClosed = false
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             settingsWindow = window
         }
@@ -263,7 +264,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        settingsWindow = nil
     }
 
     @objc func quit() {
